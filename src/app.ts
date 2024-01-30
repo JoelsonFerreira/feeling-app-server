@@ -1,10 +1,13 @@
 import WebSocket from 'ws';
 import { StringDecoder } from 'string_decoder';
+import 'dotenv/config'
 
 let clients: {user?: string, socket: WebSocket}[] = [];
 
+const port = process.env.PORT || 8080;
+
 export function createWebSocketServer() {
-  const wss = new WebSocket.Server({ port: 8080 });
+  const wss = new WebSocket.Server({ port: Number(port) });
   
   wss.on('connection', (ws) => {
     clients.push({socket: ws});
@@ -34,7 +37,7 @@ export function createWebSocketServer() {
     });
   });
 
-  console.log('WebSocket server started on port 8080');
+  console.log(`WebSocket server started on port ${port}`);
 }
 
 createWebSocketServer();
