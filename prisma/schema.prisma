@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_NON_POOLING")
+}
+
+model Post {
+  id String @id @default(cuid())
+
+  parentId String?
+  parent   Post?   @relation("replies", fields: [parentId], references: [id])
+  children Post[]  @relation("replies")
+
+  status String
+
+  shares Int    @default(0)
+  likes  Like[]
+  views  View[]
+
+  createdAt DateTime @default(now()) @map(name: "created_at")
+  updatedAt DateTime @updatedAt @map(name: "updated_at")
+
+  author   User?   @relation(fields: [authorId], references: [id])
+  authorId String?
+}
+
+model User {
+  id        String   @id
+  avatar    String?
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now()) @map(name: "created_at")
+  updatedAt DateTime @updatedAt @map(name: "updated_at")
+  posts     Post[]
+  likes     Like[]
+  views     View[]
+}
+
+model Like {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  post   Post   @relation(fields: [postId], references: [id])
+  postId String
+
+  @@unique([userId, postId], name: "likeIdentifier")
+}
+
+model View {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  post   Post   @relation(fields: [postId], references: [id])
+  postId String
+
+  @@unique([userId, postId], name: "viewIdentifier")
+}

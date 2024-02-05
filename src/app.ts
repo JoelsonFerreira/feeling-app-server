@@ -1,43 +1,36 @@
-import WebSocket from 'ws';
-import { StringDecoder } from 'string_decoder';
-import 'dotenv/config'
+import fastify from "fastify"
 
-let clients: {user?: string, socket: WebSocket}[] = [];
+import fastifyCookie from "@fastify/cookie";
+import cors from '@fastify/cors'
 
-const port = process.env.PORT || 8080;
+import { env } from "./env";
+import ws from './lib/ws'
 
-export function createWebSocketServer() {
-  const wss = new WebSocket.Server({ port: Number(port) });
-  
-  wss.on('connection', (ws) => {
-    clients.push({socket: ws});
+import posts from "./middlewares/posts";
+import messages from "./middlewares/messages";
+import auth, { authorize } from "./middlewares/auth";
 
-    ws.on('message', function message(data, isBinary) {
-      const decoder = new StringDecoder('utf8');
-      const buffer = Buffer.from(data.toString());
+async function main() {
+  const DEFAULT_PORT = 8080;
+  const ENV_PORT = Number(env.PORT);
+  const PORT = isNaN(ENV_PORT) ? DEFAULT_PORT : ENV_PORT;
 
-      const messageData = JSON.parse(decoder.write(buffer))
+  const server = fastify({ logger: false });
 
-      if(messageData.type === "LOGIN") {
-        const currentClient = clients.find(connectedClients => connectedClients.socket === ws)
+  await server.register(fastifyCookie, { secret: 'your-secret-key' });
+  await server.register(cors, { origin: "http://localhost:3000", credentials: true });
+  await server.register(ws);
 
-        if(currentClient) currentClient.user = messageData.user;
-        
-        clients.forEach(client => client.socket.send(JSON.stringify({ type: "ONLINE", users: clients.map(client => client.user).filter(client => !!client) })));
-      } else {
-        const currentClient = clients.find(connectedClients => connectedClients.user === messageData.to)
+  server.decorate("auth", authorize)
 
-        ws.send(data, { binary: isBinary });
-        currentClient?.socket.send(data, { binary: isBinary });
-      }
-    });
+  server
+    .register(posts, { prefix: "/posts" })
+    .register(messages, { prefix: "/messages" })
+    .register(auth, { prefix: "/auth" });
 
-    ws.on('close', () => {
-      clients = clients.filter((client) => client.socket !== ws);
-    });
-  });
-
-  console.log(`WebSocket server started on port ${port}`);
+  server
+    .listen({ port: PORT })
+    .then(() => console.log(`[server] running on http://localhost:${PORT}/`));
 }
 
-createWebSocketServer();
+main();
